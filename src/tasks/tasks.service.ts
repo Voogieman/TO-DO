@@ -55,31 +55,17 @@ export class TasksService {
   }
 
   async findOne(userId: string, taskId: string): Promise<Task> {
-    const task = await this.tasksRepository.findOne({
-      where: { id: taskId, userId },
-    });
-
-    if (!task) {
-      throw new NotFoundException('Задача не найдена');
-    }
-
-    if (task.archivedAt) {
-      throw new ForbiddenException(
-        'Задача находится в архиве и недоступна для изменения',
-      );
-    }
-
-    return task;
+    return this.findOneByOwner(userId, taskId);
   }
 
   async update(userId: string, taskId: string, updateTaskDto: UpdateTaskDto) {
-    const task = await this.findOne(userId, taskId);
+    const task = await this.findOneForWrite(userId, taskId);
     Object.assign(task, updateTaskDto);
     return this.tasksRepository.save(task);
   }
 
   async archive(userId: string, taskId: string) {
-    const task = await this.findOne(userId, taskId);
+    const task = await this.findOneForWrite(userId, taskId);
     const now = new Date();
     const purgeAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -101,5 +87,29 @@ export class TasksService {
       .where('purge_at IS NOT NULL')
       .andWhere('purge_at <= :now', { now: new Date() })
       .execute();
+  }
+
+  private async findOneByOwner(userId: string, taskId: string): Promise<Task> {
+    const task = await this.tasksRepository.findOne({
+      where: { id: taskId, userId },
+    });
+
+    if (!task) {
+      throw new NotFoundException('Задача не найдена');
+    }
+
+    return task;
+  }
+
+  private async findOneForWrite(userId: string, taskId: string): Promise<Task> {
+    const task = await this.findOneByOwner(userId, taskId);
+
+    if (task.archivedAt) {
+      throw new ForbiddenException(
+        'Задача находится в архиве и недоступна для изменения',
+      );
+    }
+
+    return task;
   }
 }

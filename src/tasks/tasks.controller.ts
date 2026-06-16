@@ -13,6 +13,7 @@ import {
   ApiBearerAuth,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -78,7 +79,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Получить задачу по id' })
   @ApiParam({ name: 'id', description: 'ID задачи' })
   @ApiOkResponse({ description: 'Данные задачи' })
-  @ApiForbiddenResponse({ description: 'Задача архивирована' })
+  @ApiNotFoundResponse({ description: 'Задача не найдена' })
   findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.tasksService.findOne(user.sub, id);
   }
@@ -87,6 +88,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Обновить задачу (только владельцу)' })
   @ApiParam({ name: 'id', description: 'ID задачи' })
   @ApiOkResponse({ description: 'Задача обновлена' })
+  @ApiNotFoundResponse({ description: 'Задача не найдена' })
   @ApiForbiddenResponse({ description: 'Задача архивирована' })
   update(
     @CurrentUser() user: JwtPayload,
@@ -109,6 +111,8 @@ export class TasksController {
       purgeAt: '2026-06-22T18:00:00.000Z',
     },
   })
+  @ApiNotFoundResponse({ description: 'Задача не найдена' })
+  @ApiForbiddenResponse({ description: 'Задача архивирована' })
   archive(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.tasksService.archive(user.sub, id);
   }

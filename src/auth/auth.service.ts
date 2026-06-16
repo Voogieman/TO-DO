@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { QueryFailedError } from 'typeorm';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -25,12 +26,22 @@ export class AuthService {
       );
     }
 
-    const passwordHash = await bcrypt.hash(registerDto.password, 10);
-    const user = await this.usersService.create(
-      registerDto.email,
-      passwordHash,
-    );
-    return this.buildAuthResponse(user);
+    try {
+      const passwordHash = await bcrypt.hash(registerDto.password, 10);
+      const user = await this.usersService.create(
+        registerDto.email,
+        passwordHash,
+      );
+      return this.buildAuthResponse(user);
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        throw new BadRequestException(
+          'Пользователь с таким email уже существует',
+        );
+      }
+
+      throw error;
+    }
   }
 
   async login(loginDto: LoginDto) {
@@ -59,5 +70,14 @@ export class AuthService {
         email: user.email,
       },
     };
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    if (!(error instanceof QueryFailedError)) {
+      return false;
+    }
+
+    const dbError = error as QueryFailedError & { code?: string };
+    return dbError.code === '23505';
   }
 }
