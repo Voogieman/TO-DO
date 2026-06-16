@@ -65,6 +65,53 @@ Copy-Item .env.example .env
 npm run start:dev
 ```
 
+## Локальная проверка эндпоинтов (пошагово)
+
+1. Убедитесь, что API поднят:
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+2. Зарегистрируйте пользователя:
+
+```bash
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"user@example.com\",\"password\":\"StrongPass123\"}"
+```
+
+3. Авторизуйтесь и скопируйте `accessToken`:
+
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"user@example.com\",\"password\":\"StrongPass123\"}"
+```
+
+4. Проверьте защищенный эндпоинт без токена (должен быть `401`):
+
+```bash
+curl -i "http://localhost:3000/api/tasks?page=1&limit=10"
+```
+
+5. Проверьте создание и получение задач с токеном:
+
+```bash
+curl -X POST http://localhost:3000/api/tasks \
+  -H "Authorization: Bearer <JWT_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d "{\"title\":\"Подготовить релиз\",\"description\":\"Проверить документацию\"}"
+
+curl "http://localhost:3000/api/tasks?status=todo&page=1&limit=10" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+6. Проверка через Swagger:
+   - откройте `http://localhost:3000/docs`;
+   - нажмите **Authorize** и вставьте `Bearer <JWT_TOKEN>`;
+   - тестируйте `GET /api/tasks` c query-параметрами `status`, `page`, `limit`.
+
 ## Запуск через Docker
 
 ```bash
