@@ -13,7 +13,6 @@ import { LoginDto } from './dto/login.dto';
 import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Авторизация')
-@Public()
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -31,6 +30,7 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: 'Пользователь с таким email уже существует',
   })
+  @Public()
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
@@ -47,6 +47,7 @@ export class AuthController {
     },
   })
   @ApiUnauthorizedResponse({ description: 'Неверный email или пароль' })
+  @Public()
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
