@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -21,14 +22,16 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { TasksService } from './tasks.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TasksQueryDto } from './dto/tasks-query.dto';
 import { TaskStatus } from './enums/task-status.enum';
+
+type RequestWithUser = Request & { user: JwtPayload };
 
 @ApiTags('Задачи')
 @ApiBearerAuth()
@@ -41,11 +44,8 @@ export class TasksController {
   @ApiOperation({ summary: 'Создать задачу' })
   @ApiCreatedResponse({ description: 'Задача создана' })
   @ApiUnauthorizedResponse({ description: 'Необходим JWT токен' })
-  create(
-    @CurrentUser() user: JwtPayload,
-    @Body() createTaskDto: CreateTaskDto,
-  ) {
-    return this.tasksService.create(user.sub, createTaskDto);
+  create(@Req() req: RequestWithUser, @Body() createTaskDto: CreateTaskDto) {
+    return this.tasksService.create(req.user.sub, createTaskDto);
   }
 
   @Get()
@@ -62,17 +62,19 @@ export class TasksController {
     name: 'page',
     required: false,
     description: 'Номер страницы',
+    type: Number,
     example: 1,
   })
   @ApiQuery({
     name: 'limit',
     required: false,
     description: 'Количество элементов на странице',
+    type: Number,
     example: 10,
   })
   @ApiOkResponse({ description: 'Список задач' })
-  findAll(@CurrentUser() user: JwtPayload, @Query() query: TasksQueryDto) {
-    return this.tasksService.findAll(user.sub, query);
+  findAll(@Req() req: RequestWithUser, @Query() query: TasksQueryDto) {
+    return this.tasksService.findAll(req.user.sub, query);
   }
 
   @Get(':id')
@@ -80,8 +82,8 @@ export class TasksController {
   @ApiParam({ name: 'id', description: 'ID задачи' })
   @ApiOkResponse({ description: 'Данные задачи' })
   @ApiNotFoundResponse({ description: 'Задача не найдена' })
-  findOne(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.tasksService.findOne(user.sub, id);
+  findOne(@Req() req: RequestWithUser, @Param('id') id: string) {
+    return this.tasksService.findOne(req.user.sub, id);
   }
 
   @Patch(':id')
@@ -91,11 +93,11 @@ export class TasksController {
   @ApiNotFoundResponse({ description: 'Задача не найдена' })
   @ApiForbiddenResponse({ description: 'Задача архивирована' })
   update(
-    @CurrentUser() user: JwtPayload,
+    @Req() req: RequestWithUser,
     @Param('id') id: string,
     @Body() updateTaskDto: UpdateTaskDto,
   ) {
-    return this.tasksService.update(user.sub, id, updateTaskDto);
+    return this.tasksService.update(req.user.sub, id, updateTaskDto);
   }
 
   @Delete(':id')
@@ -113,7 +115,7 @@ export class TasksController {
   })
   @ApiNotFoundResponse({ description: 'Задача не найдена' })
   @ApiForbiddenResponse({ description: 'Задача архивирована' })
-  archive(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.tasksService.archive(user.sub, id);
+  archive(@Req() req: RequestWithUser, @Param('id') id: string) {
+    return this.tasksService.archive(req.user.sub, id);
   }
 }

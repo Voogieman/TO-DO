@@ -1,10 +1,12 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  RequestTimeoutException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Task } from './entities/task.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -12,6 +14,9 @@ import { TasksQueryDto } from './dto/tasks-query.dto';
 
 @Injectable()
 export class TasksService {
+  private readonly logger = new Logger(TasksService.name);
+  private static readonly FIND_ALL_TIMEOUT_MS = 10_000;
+
   constructor(
     @InjectRepository(Task)
     private readonly tasksRepository: Repository<Task>,
@@ -27,31 +32,71 @@ export class TasksService {
   }
 
   async findAll(userId: string, query: TasksQueryDto) {
+    const startedAt = Date.now();
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
-
-    const queryBuilder = this.tasksRepository
-      .createQueryBuilder('task')
-      .where('task.user_id = :userId', { userId })
-      .andWhere('task.archived_at IS NULL');
-
-    if (query.status) {
-      queryBuilder.andWhere('task.status = :status', { status: query.status });
-    }
-
-    queryBuilder.orderBy('task.created_at', 'DESC');
-    queryBuilder.skip((page - 1) * limit).take(limit);
-
-    const [items, total] = await queryBuilder.getManyAndCount();
-    return {
-      items,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+    const where = {
+      userId,
+      archivedAt: IsNull(),
+      ...(query.status ? { status: query.status } : {}),
     };
+    const pagination = {
+      order: { createdAt: 'DESC' as const },
+      skip: (page - 1) * limit,
+      take: limit,
+    };
+
+    try {
+      const [items, total] = await this.withTimeout(
+        this.tasksRepository.findAndCount({
+          where,
+          ...pagination,
+        }),
+        TasksService.FIND_ALL_TIMEOUT_MS,
+      );
+
+      return {
+        items,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown database error';
+      this.logger.error(
+        `findAll failed: userId=${userId}, status=${query.status ?? 'all'}, page=${page}, limit=${limit}, durationMs=${Date.now() - startedAt}, error=${message}`,
+      );
+      throw error;
+    }
+  }
+
+  private async withTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+  ): Promise<T> {
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(
+          new RequestTimeoutException(
+            `Запрос к базе превысил таймаут ${timeoutMs}ms`,
+          ),
+        );
+      }, timeoutMs);
+    });
+
+    try {
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
   }
 
   async findOne(userId: string, taskId: string): Promise<Task> {

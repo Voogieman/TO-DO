@@ -8,6 +8,12 @@ export class TasksQueryDto {
     enum: TaskStatus,
     description: 'Фильтр по статусу задачи',
   })
+  @Transform(({ value }: { value: unknown }) => {
+    if (typeof value === 'string') {
+      return value.trim().toLowerCase();
+    }
+    return value;
+  })
   @IsOptional()
   @IsEnum(TaskStatus)
   status?: TaskStatus;
@@ -15,25 +21,29 @@ export class TasksQueryDto {
   @ApiPropertyOptional({
     default: 1,
     minimum: 1,
+    type: Number,
     description: 'Номер страницы',
   })
   @Type(() => Number)
   @IsOptional()
   @IsInt()
   @Min(1)
-  page = 1;
+  page: number = 1;
 
   @ApiPropertyOptional({
     default: 10,
     minimum: 1,
     maximum: 100,
+    type: Number,
     description: 'Количество задач на страницу',
   })
   @Type(() => Number)
-  @Transform(({ value }) => (value ? Number(value) : 10))
+  @Transform(({ value }: { value: unknown }) =>
+    value !== undefined && value !== null && value !== '' ? Number(value) : 10,
+  )
   @IsOptional()
   @IsInt()
   @Min(1)
   @Max(100)
-  limit = 10;
+  limit: number = 10;
 }

@@ -10,6 +10,7 @@ import { TasksModule } from './tasks/tasks.module';
 import { User } from './users/entities/user.entity';
 import { Task } from './tasks/entities/task.entity';
 import { AppController } from './app.controller';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -32,6 +33,11 @@ import { AppController } from './app.controller';
         database: configService.get<string>('DB_NAME') ?? 'todo_db',
         entities: [User, Task],
         synchronize: configService.get<string>('DB_SYNC') === 'true',
+        extra: {
+          connectionTimeoutMillis: 5_000,
+          query_timeout: 10_000,
+          statement_timeout: 10_000,
+        },
       }),
     }),
     UsersModule,
@@ -40,6 +46,10 @@ import { AppController } from './app.controller';
   ],
   controllers: [AppController],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
